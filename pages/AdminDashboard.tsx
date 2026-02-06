@@ -211,8 +211,7 @@ const MenuManager: React.FC = () => {
 
   const saveName = () => {
     if (editingId && editName) {
-      const img = `https://placehold.co/600x400/D60000/FFFFFF/png?text=${encodeURIComponent(editName)}`;
-      updateMenuItem(editingId, { name: editName, image: img });
+      updateMenuItem(editingId, { name: editName });
       setEditingId(null);
     }
   };
@@ -220,14 +219,11 @@ const MenuManager: React.FC = () => {
   const handleAddItem = () => {
     if (!newItem.name || newItem.variants.length === 0) return;
     
-    const img = `https://placehold.co/600x400/D60000/FFFFFF/png?text=${encodeURIComponent(newItem.name)}`;
-    
     const itemToAdd: MenuItem = {
       id: Date.now().toString(),
       name: newItem.name,
       categoryId: newItem.category,
       description: newItem.desc,
-      image: img,
       isAvailable: true,
       variants: newItem.variants
     };
@@ -353,7 +349,9 @@ const MenuManager: React.FC = () => {
               </button>
             </div>
             
-            <img src={item.image} alt={item.name} className="w-full h-32 object-cover rounded mb-3 bg-gray-100" />
+            <div className="w-full h-32 bg-[#F8A45E] flex items-center justify-center text-white font-bold text-xl rounded mb-3">
+              {item.name}
+            </div>
 
             {/* Variants */}
             <div className="space-y-2 mt-2">

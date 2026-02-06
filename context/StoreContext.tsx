@@ -17,8 +17,10 @@ interface StoreContextType {
   loginAdmin: (pass: string) => boolean;
   logoutAdmin: () => void;
   updateOrderStatus: (orderId: string, status: OrderStatus, reason?: string) => void;
-  updateMenuPrice: (itemId: string, variantName: string, newPrice: number) => void;
+  updateVariantPrice: (itemId: string, variantName: string, newPrice: number) => void;
   toggleStock: (itemId: string) => void;
+  addMenuItem: (item: MenuItem) => Promise<void>;
+  updateMenuItem: (itemId: string, updates: Partial<MenuItem>) => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -96,7 +98,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       addressArea: customer.area,
       items: cart,
       totalAmount: cart.reduce((acc, i) => acc + (i.price * i.quantity), 0),
-      status: 'new',
+      status: 'new' as OrderStatus,
       timestamp: Date.now()
     };
     await addDoc(collection(db, "orders"), newOrder);
@@ -118,7 +120,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     await updateDoc(orderRef, { status, cancellationReason: reason || null });
   };
 
-  const updateMenuPrice = async (itemId: string, variantName: string, newPrice: number) => {
+  const updateVariantPrice = async (itemId: string, variantName: string, newPrice: number) => {
     const item = menu.find(i => i.id === itemId);
     if (item) {
       const updatedVariants = item.variants.map(v => v.name === variantName ? { ...v, price: newPrice } : v);
@@ -133,12 +135,20 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
+  const addMenuItem = async (item: MenuItem) => {
+    await setDoc(doc(db, "menu", item.id), item);
+  };
+
+  const updateMenuItem = async (itemId: string, updates: Partial<MenuItem>) => {
+    await updateDoc(doc(db, "menu", itemId), updates);
+  };
+
   return (
     <StoreContext.Provider value={{
       menu, cart, orders, isAdmin,
       addToCart, removeFromCart, updateQuantity, clearCart,
       placeOrder, loginAdmin, logoutAdmin, updateOrderStatus,
-      updateMenuPrice, toggleStock
+      updateVariantPrice, toggleStock, addMenuItem, updateMenuItem
     }}>
       {children}
     </StoreContext.Provider>

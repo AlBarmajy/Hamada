@@ -34,8 +34,8 @@ const Cart: React.FC = () => {
         {cart.map((item, idx) => (
           <div key={`${item.itemId}-${item.variantName}`} className={`p-4 flex items-center gap-4 ${idx !== cart.length - 1 ? 'border-b border-gray-100' : ''}`}>
             {/* Image Placeholder */}
-            <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden shrink-0">
-               <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+            <div className="w-16 h-16 bg-[#F8A45E] rounded-lg overflow-hidden shrink-0 flex items-center justify-center text-white text-xs text-center font-bold p-1">
+               {item.name}
             </div>
 
             <div className="flex-1">
