@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
-import { Order, MenuItem } from '../types';
-import { AlertCircle, Clock, Check, Truck, X, Edit, EyeOff, Eye } from 'lucide-react';
+import { Order, MenuItem, Variant } from '../types';
+import { categories } from '../data/menu';
+import { AlertCircle, Clock, Check, Truck, X, Edit, EyeOff, Eye, Plus, Save, Trash } from 'lucide-react';
 
 const AdminDashboard: React.FC = () => {
   const { isAdmin, loginAdmin, logoutAdmin } = useStore();
@@ -174,71 +175,220 @@ const LiveOrders: React.FC = () => {
 
 // 2. Menu Manager Component
 const MenuManager: React.FC = () => {
-  const { menu, toggleStock, updateMenuPrice } = useStore();
+  const { menu, toggleStock, updateVariantPrice, updateMenuItem, addMenuItem } = useStore();
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingVariant, setEditingVariant] = useState<string | null>(null);
-  const [tempPrice, setTempPrice] = useState<number>(0);
+  
+  // Edit State
+  const [editName, setEditName] = useState('');
+  const [editPrice, setEditPrice] = useState(0);
+  const [editVariant, setEditVariant] = useState('');
 
-  const startEdit = (id: string, variant: string, currentPrice: number) => {
+  // Add State
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newItem, setNewItem] = useState<{name: string, category: string, desc: string, variants: Variant[]}>({
+    name: '', category: categories[0].id, desc: '', variants: [{name: 'افتراضي', price: 0}]
+  });
+
+  const startEditPrice = (id: string, variant: string, currentPrice: number) => {
     setEditingId(id);
-    setEditingVariant(variant);
-    setTempPrice(currentPrice);
+    setEditVariant(variant);
+    setEditPrice(currentPrice);
+    setEditName(''); // Clear name edit
   };
 
-  const saveEdit = () => {
-    if (editingId && editingVariant) {
-      updateMenuPrice(editingId, editingVariant, tempPrice);
+  const startEditName = (item: MenuItem) => {
+    setEditingId(item.id);
+    setEditName(item.name);
+    setEditVariant(''); // Clear variant edit
+  };
+
+  const savePrice = () => {
+    if (editingId && editVariant) {
+      updateVariantPrice(editingId, editVariant, editPrice);
       setEditingId(null);
-      setEditingVariant(null);
     }
   };
 
+  const saveName = () => {
+    if (editingId && editName) {
+      const img = `https://placehold.co/600x400/D60000/FFFFFF/png?text=${encodeURIComponent(editName)}`;
+      updateMenuItem(editingId, { name: editName, image: img });
+      setEditingId(null);
+    }
+  };
+
+  const handleAddItem = () => {
+    if (!newItem.name || newItem.variants.length === 0) return;
+    
+    const img = `https://placehold.co/600x400/D60000/FFFFFF/png?text=${encodeURIComponent(newItem.name)}`;
+    
+    const itemToAdd: MenuItem = {
+      id: Date.now().toString(),
+      name: newItem.name,
+      categoryId: newItem.category,
+      description: newItem.desc,
+      image: img,
+      isAvailable: true,
+      variants: newItem.variants
+    };
+
+    addMenuItem(itemToAdd);
+    setShowAddForm(false);
+    setNewItem({ name: '', category: categories[0].id, desc: '', variants: [{name: 'افتراضي', price: 0}] });
+  };
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {menu.map(item => (
-        <div key={item.id} className={`bg-white rounded-lg shadow border p-4 ${!item.isAvailable ? 'bg-red-50' : ''}`}>
-          <div className="flex justify-between items-start mb-2">
-            <h3 className="font-bold">{item.name}</h3>
-            <button 
-              onClick={() => toggleStock(item.id)}
-              className={`p-1 rounded ${item.isAvailable ? 'text-green-600 bg-green-100' : 'text-red-600 bg-red-100'}`}
-              title="تغيير التوفر"
-            >
-              {item.isAvailable ? <Eye size={20} /> : <EyeOff size={20} />}
-            </button>
-          </div>
-          
-          <div className="space-y-2 mt-4">
-            {item.variants.map((variant, idx) => (
-              <div key={idx} className="flex justify-between items-center bg-gray-50 p-2 rounded text-sm">
-                <span>{variant.name}</span>
-                
-                {editingId === item.id && editingVariant === variant.name ? (
-                  <div className="flex items-center gap-1">
-                    <input 
-                      type="number" 
-                      className="w-16 border rounded px-1 py-0.5"
-                      value={tempPrice}
-                      onChange={e => setTempPrice(Number(e.target.value))}
-                    />
-                    <button onClick={saveEdit} className="text-green-600"><Check size={16}/></button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold">{variant.price}</span>
-                    <button 
-                      onClick={() => startEdit(item.id, variant.name, variant.price)}
-                      className="text-gray-400 hover:text-blue-500"
-                    >
-                      <Edit size={14} />
-                    </button>
-                  </div>
-                )}
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold">قائمة الطعام</h2>
+        <button 
+          onClick={() => setShowAddForm(true)}
+          className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-green-700"
+        >
+          <Plus size={20} /> إضافة صنف جديد
+        </button>
+      </div>
+
+      {/* Add Item Modal */}
+      {showAddForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto">
+          <div className="bg-white p-6 rounded-xl w-full max-w-lg m-4">
+            <h3 className="text-xl font-bold mb-4 border-b pb-2">إضافة صنف جديد</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold mb-1">اسم الصنف</label>
+                <input 
+                  type="text" className="w-full border p-2 rounded"
+                  value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})}
+                />
               </div>
-            ))}
+              <div>
+                <label className="block text-sm font-bold mb-1">القسم</label>
+                <select 
+                  className="w-full border p-2 rounded"
+                  value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value})}
+                >
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-1">الوصف (اختياري)</label>
+                <textarea 
+                  className="w-full border p-2 rounded"
+                  value={newItem.desc} onChange={e => setNewItem({...newItem, desc: e.target.value})}
+                ></textarea>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-bold mb-1">الأنواع والأسعار</label>
+                {newItem.variants.map((v, i) => (
+                  <div key={i} className="flex gap-2 mb-2">
+                    <input 
+                      placeholder="الحجم/النوع" className="flex-1 border p-2 rounded"
+                      value={v.name} 
+                      onChange={e => {
+                        const newV = [...newItem.variants];
+                        newV[i].name = e.target.value;
+                        setNewItem({...newItem, variants: newV});
+                      }}
+                    />
+                    <input 
+                      placeholder="السعر" type="number" className="w-24 border p-2 rounded"
+                      value={v.price} 
+                      onChange={e => {
+                        const newV = [...newItem.variants];
+                        newV[i].price = Number(e.target.value);
+                        setNewItem({...newItem, variants: newV});
+                      }}
+                    />
+                  </div>
+                ))}
+                <button 
+                  type="button" 
+                  onClick={() => setNewItem({...newItem, variants: [...newItem.variants, {name: '', price: 0}]})}
+                  className="text-sm text-blue-600 hover:underline"
+                >
+                  + إضافة حجم آخر
+                </button>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button onClick={handleAddItem} className="flex-1 bg-green-600 text-white py-2 rounded font-bold">حفظ</button>
+                <button onClick={() => setShowAddForm(false)} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded font-bold">إلغاء</button>
+              </div>
+            </div>
           </div>
         </div>
-      ))}
+      )}
+
+      {/* Menu Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {menu.map(item => (
+          <div key={item.id} className={`bg-white rounded-lg shadow border p-4 ${!item.isAvailable ? 'bg-red-50' : ''}`}>
+            
+            {/* Header: Name & Availability */}
+            <div className="flex justify-between items-start mb-2">
+              {editingId === item.id && editName !== '' ? (
+                 <div className="flex items-center gap-2 flex-1">
+                   <input 
+                    type="text" className="border rounded px-2 py-1 w-full" 
+                    value={editName} onChange={e => setEditName(e.target.value)}
+                   />
+                   <button onClick={saveName} className="text-green-600 bg-green-100 p-1 rounded"><Check size={16}/></button>
+                   <button onClick={() => setEditingId(null)} className="text-red-600 bg-red-100 p-1 rounded"><X size={16}/></button>
+                 </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                   <h3 className="font-bold text-lg">{item.name}</h3>
+                   <button onClick={() => startEditName(item)} className="text-gray-400 hover:text-blue-500"><Edit size={14}/></button>
+                </div>
+              )}
+
+              <button 
+                onClick={() => toggleStock(item.id)}
+                className={`p-1 rounded ${item.isAvailable ? 'text-green-600 bg-green-100' : 'text-red-600 bg-red-100'}`}
+                title="تغيير التوفر"
+              >
+                {item.isAvailable ? <Eye size={20} /> : <EyeOff size={20} />}
+              </button>
+            </div>
+            
+            <img src={item.image} alt={item.name} className="w-full h-32 object-cover rounded mb-3 bg-gray-100" />
+
+            {/* Variants */}
+            <div className="space-y-2 mt-2">
+              {item.variants.map((variant, idx) => (
+                <div key={idx} className="flex justify-between items-center bg-gray-50 p-2 rounded text-sm">
+                  <span>{variant.name}</span>
+                  
+                  {editingId === item.id && editVariant === variant.name ? (
+                    <div className="flex items-center gap-1">
+                      <input 
+                        type="number" 
+                        className="w-20 border rounded px-1 py-0.5"
+                        value={editPrice}
+                        onChange={e => setEditPrice(Number(e.target.value))}
+                      />
+                      <button onClick={savePrice} className="text-green-600"><Check size={16}/></button>
+                      <button onClick={() => setEditingId(null)} className="text-red-600"><X size={16}/></button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-brand-red">{variant.price} ج.م</span>
+                      <button 
+                        onClick={() => startEditPrice(item.id, variant.name, variant.price)}
+                        className="text-gray-400 hover:text-blue-500"
+                      >
+                        <Edit size={14} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

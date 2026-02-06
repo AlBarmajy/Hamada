@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { CartItem, MenuItem, Order, OrderStatus } from '../types';
 import { initialMenu } from '../data/menu';
+import { db } from '../lib/firebase';
+import { collection, onSnapshot, addDoc, updateDoc, doc, setDoc, query, orderBy } from 'firebase/firestore';
 
 interface StoreContextType {
   menu: MenuItem[];
@@ -11,7 +13,7 @@ interface StoreContextType {
   removeFromCart: (itemId: string, variantName: string) => void;
   updateQuantity: (itemId: string, variantName: string, delta: number) => void;
   clearCart: () => void;
-  placeOrder: (customer: { name: string; phone: string; address: string; area: string }) => void;
+  placeOrder: (customer: { name: string; phone: string; address: string; area: string }) => Promise<void>;
   loginAdmin: (pass: string) => boolean;
   logoutAdmin: () => void;
   updateOrderStatus: (orderId: string, status: OrderStatus, reason?: string) => void;
@@ -22,28 +24,43 @@ interface StoreContextType {
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [menu, setMenu] = useState<MenuItem[]>(() => {
-    const saved = localStorage.getItem('hamada_menu');
-    return saved ? JSON.parse(saved) : initialMenu;
-  });
-
+  const [menu, setMenu] = useState<MenuItem[]>(initialMenu);
   const [cart, setCart] = useState<CartItem[]>(() => {
     const saved = localStorage.getItem('hamada_cart');
     return saved ? JSON.parse(saved) : [];
   });
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => localStorage.getItem('hamada_admin') === 'true');
 
-  const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem('hamada_orders');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // مزامنة المنيو لحظياً
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "menu"), (snapshot) => {
+      if (!snapshot.empty) {
+        const dbMenu = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as MenuItem[];
+        setMenu(dbMenu);
+      } else {
+        // رفع المنيو الافتراضي في أول تشغيل
+        initialMenu.forEach(async (item) => {
+          await setDoc(doc(db, "menu", item.id), item);
+        });
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
-  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
-    return localStorage.getItem('hamada_admin') === 'true';
-  });
+  // مزامنة الطلبات للأدمن فقط
+  useEffect(() => {
+    if (isAdmin) {
+      const q = query(collection(db, "orders"), orderBy("timestamp", "desc"));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const dbOrders = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Order[];
+        setOrders(dbOrders);
+      });
+      return () => unsubscribe();
+    }
+  }, [isAdmin]);
 
-  useEffect(() => { localStorage.setItem('hamada_menu', JSON.stringify(menu)); }, [menu]);
   useEffect(() => { localStorage.setItem('hamada_cart', JSON.stringify(cart)); }, [cart]);
-  useEffect(() => { localStorage.setItem('hamada_orders', JSON.stringify(orders)); }, [orders]);
   useEffect(() => { localStorage.setItem('hamada_admin', String(isAdmin)); }, [isAdmin]);
 
   const addToCart = (item: MenuItem, variantName: string, price: number) => {
@@ -71,24 +88,23 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const clearCart = () => setCart([]);
 
-  const placeOrder = (customer: { name: string; phone: string; address: string; area: string }) => {
-    const newOrder: Order = {
-      id: Date.now().toString(),
+  const placeOrder = async (customer: { name: string; phone: string; address: string; area: string }) => {
+    const newOrder = {
       customerName: customer.name,
       customerPhone: customer.phone,
       address: customer.address,
       addressArea: customer.area,
-      items: [...cart],
+      items: cart,
       totalAmount: cart.reduce((acc, i) => acc + (i.price * i.quantity), 0),
       status: 'new',
       timestamp: Date.now()
     };
-    setOrders(prev => [newOrder, ...prev]);
+    await addDoc(collection(db, "orders"), newOrder);
     clearCart();
   };
 
   const loginAdmin = (pass: string) => {
-    if (pass === 'hamada012') { // Prompt specified login
+    if (pass === 'hamada012') {
       setIsAdmin(true);
       return true;
     }
@@ -97,24 +113,24 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const logoutAdmin = () => setIsAdmin(false);
 
-  const updateOrderStatus = (orderId: string, status: OrderStatus, reason?: string) => {
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status, cancellationReason: reason } : o));
+  const updateOrderStatus = async (orderId: string, status: OrderStatus, reason?: string) => {
+    const orderRef = doc(db, "orders", orderId);
+    await updateDoc(orderRef, { status, cancellationReason: reason || null });
   };
 
-  const updateMenuPrice = (itemId: string, variantName: string, newPrice: number) => {
-    setMenu(prev => prev.map(item => {
-      if (item.id === itemId) {
-        return {
-          ...item,
-          variants: item.variants.map(v => v.name === variantName ? { ...v, price: newPrice } : v)
-        };
-      }
-      return item;
-    }));
+  const updateMenuPrice = async (itemId: string, variantName: string, newPrice: number) => {
+    const item = menu.find(i => i.id === itemId);
+    if (item) {
+      const updatedVariants = item.variants.map(v => v.name === variantName ? { ...v, price: newPrice } : v);
+      await updateDoc(doc(db, "menu", itemId), { variants: updatedVariants });
+    }
   };
 
-  const toggleStock = (itemId: string) => {
-    setMenu(prev => prev.map(item => item.id === itemId ? { ...item, isAvailable: !item.isAvailable } : item));
+  const toggleStock = async (itemId: string) => {
+    const item = menu.find(i => i.id === itemId);
+    if (item) {
+      await updateDoc(doc(db, "menu", itemId), { isAvailable: !item.isAvailable });
+    }
   };
 
   return (

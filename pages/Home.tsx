@@ -69,11 +69,11 @@ const MenuItemCard: React.FC<{ item: MenuItem; onAdd: any }> = ({ item, onAdd })
 
   return (
     <div className={`bg-white rounded-xl shadow-md overflow-hidden border border-gray-100 hover:shadow-lg transition-shadow ${!item.isAvailable ? 'opacity-60 grayscale' : ''}`}>
-      <div className="h-40 bg-gray-200 relative overflow-hidden">
+      <div className="h-48 bg-gray-200 relative overflow-hidden group">
         <img 
-          src={`https://picsum.photos/seed/${item.id}/400/200`} 
+          src={item.image} 
           alt={item.name} 
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
         />
         {!item.isAvailable && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold text-xl">

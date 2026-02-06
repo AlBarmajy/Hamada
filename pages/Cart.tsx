@@ -35,7 +35,7 @@ const Cart: React.FC = () => {
           <div key={`${item.itemId}-${item.variantName}`} className={`p-4 flex items-center gap-4 ${idx !== cart.length - 1 ? 'border-b border-gray-100' : ''}`}>
             {/* Image Placeholder */}
             <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden shrink-0">
-               <img src={`https://picsum.photos/seed/${item.itemId}/100`} alt={item.name} className="w-full h-full object-cover" />
+               <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
             </div>
 
             <div className="flex-1">

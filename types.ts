@@ -10,7 +10,7 @@ export interface MenuItem {
   categoryId: string;
   variants: Variant[];
   isAvailable: boolean;
-  image?: string;
+  image: string; // Made mandatory for the new strategy
 }
 
 export interface Category {
@@ -24,6 +24,7 @@ export interface CartItem {
   variantName: string;
   price: number;
   quantity: number;
+  image: string; // Carry image to cart for display
 }
 
 export type OrderStatus = 'new' | 'cooking' | 'out_for_delivery' | 'delivered' | 'cancelled';
