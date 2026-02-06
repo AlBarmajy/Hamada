@@ -1,4 +1,4 @@
-import * as firebaseApp from "firebase/app";
+import { initializeApp } from "firebase/app"; // تعديل هنا
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -11,5 +11,6 @@ const firebaseConfig = {
   measurementId: "G-GVQGYVL16N"
 };
 
-const app = firebaseApp.initializeApp(firebaseConfig);
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
